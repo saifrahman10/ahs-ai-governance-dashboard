@@ -439,7 +439,7 @@ function FieldGroup({
                 <SelectTrigger className="w-52 h-8 text-xs bg-card border-border">
                   <SelectValue placeholder="Select column..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]">
                   <SelectItem value={NONE_VALUE}>
                     <span className="text-muted-foreground">— None —</span>
                   </SelectItem>
