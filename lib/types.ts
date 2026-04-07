@@ -121,4 +121,30 @@ export interface FilterState {
   timeRange: { start: string; end: string } | null
 }
 
+export interface GovernanceThresholds {
+  fnrDisparity: number
+  ppvDisparity: number
+  minRecall: number
+  ece: number
+  psiWarning: number
+  psiSevere: number
+  predictionKS: number
+  targetDriftWarning: number
+  targetDriftSevere: number
+  minSubgroupN: number
+}
+
+export const DEFAULT_THRESHOLDS: GovernanceThresholds = {
+  fnrDisparity: 0.08,
+  ppvDisparity: 0.12,
+  minRecall: 0.85,
+  ece: 0.10,
+  psiWarning: 0.10,
+  psiSevere: 0.20,
+  predictionKS: 0.10,
+  targetDriftWarning: 0.05,
+  targetDriftSevere: 0.10,
+  minSubgroupN: 50,
+}
+
 export type DatasetStatus = "empty" | "uploading" | "mapping" | "computing" | "ready" | "error"

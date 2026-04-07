@@ -8,11 +8,13 @@ import type {
   TargetDrift,
   DataQualityMetrics,
   GovernanceDecision,
+  GovernanceThresholds,
   MetricCheckResult,
   ComputedMetrics,
   TimeSeriesPoint,
   ConfusionMatrix,
 } from "./types"
+import { DEFAULT_THRESHOLDS } from "./types"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -396,7 +398,8 @@ function computeGovernance(
   subgroups: Record<string, SubgroupResult[]>,
   featureDrift: DriftResult[],
   predictionDrift: PredictionDrift,
-  targetDrift: TargetDrift
+  targetDrift: TargetDrift,
+  thresholds: GovernanceThresholds = DEFAULT_THRESHOLDS
 ): GovernanceDecision {
   const checks: MetricCheckResult[] = []
   const reasoning: string[] = []
@@ -460,8 +463,8 @@ function computeGovernance(
     name: "FNR Disparity",
     value: `${(maxFnrDisparity * 100).toFixed(1)}%`,
     numericValue: maxFnrDisparity,
-    threshold: "≤8%",
-    status: maxFnrDisparity <= 0.08 ? "pass" : "fail",
+    threshold: `≤${(thresholds.fnrDisparity * 100).toFixed(0)}%`,
+    status: maxFnrDisparity <= thresholds.fnrDisparity ? "pass" : "fail",
     details: fnrWorstCol
       ? `${fnrWorstCol}: ${fnrWorstGroup} (${(fnrWorstVal * 100).toFixed(1)}%) vs ${fnrBestGroup} (${(fnrBestVal * 100).toFixed(1)}%)`
       : undefined,
@@ -472,8 +475,8 @@ function computeGovernance(
     name: "PPV Disparity",
     value: `${(maxPpvDisparity * 100).toFixed(1)}%`,
     numericValue: maxPpvDisparity,
-    threshold: "≤12%",
-    status: maxPpvDisparity <= 0.12 ? "pass" : "fail",
+    threshold: `≤${(thresholds.ppvDisparity * 100).toFixed(0)}%`,
+    status: maxPpvDisparity <= thresholds.ppvDisparity ? "pass" : "fail",
     details: ppvWorstCol ? `Worst column: ${ppvWorstCol}` : undefined,
   })
 
@@ -485,8 +488,8 @@ function computeGovernance(
         name: "Min Recall",
         value: `${(globalMinRecall * 100).toFixed(1)}%`,
         numericValue: globalMinRecall,
-        threshold: "≥85%",
-        status: globalMinRecall >= 0.85 ? "pass" : "fail",
+        threshold: `≥${(thresholds.minRecall * 100).toFixed(0)}%`,
+        status: globalMinRecall >= thresholds.minRecall ? "pass" : "fail",
         details: `Lowest: ${globalMinRecallGroup}`,
       })
     }
@@ -497,8 +500,8 @@ function computeGovernance(
     name: "Calibration ECE",
     value: overall.ece.toFixed(3),
     numericValue: overall.ece,
-    threshold: "<0.10",
-    status: overall.ece < 0.1 ? "pass" : "fail",
+    threshold: `<${thresholds.ece.toFixed(2)}`,
+    status: overall.ece < thresholds.ece ? "pass" : "fail",
   })
 
   // --- PSI max ---
@@ -509,8 +512,8 @@ function computeGovernance(
       name: `PSI Max (${worstFeature.feature})`,
       value: maxPsi.toFixed(3),
       numericValue: maxPsi,
-      threshold: "<0.1",
-      status: maxPsi < 0.1 ? "pass" : maxPsi < 0.2 ? "warning" : "fail",
+      threshold: `<${thresholds.psiWarning.toFixed(1)}`,
+      status: maxPsi < thresholds.psiWarning ? "pass" : maxPsi < thresholds.psiSevere ? "warning" : "fail",
     })
   }
 
@@ -519,8 +522,8 @@ function computeGovernance(
     name: "Prediction Drift (KS)",
     value: predictionDrift.ksStatistic.toFixed(3),
     numericValue: predictionDrift.ksStatistic,
-    threshold: "<0.1",
-    status: predictionDrift.status === "stable" ? "pass" : predictionDrift.status === "investigate" ? "warning" : "fail",
+    threshold: `<${thresholds.predictionKS.toFixed(1)}`,
+    status: predictionDrift.ksStatistic < thresholds.predictionKS ? "pass" : predictionDrift.ksStatistic < thresholds.psiSevere ? "warning" : "fail",
   })
 
   // --- Target Drift ---
@@ -528,8 +531,8 @@ function computeGovernance(
     name: "Target Drift",
     value: `${(targetDrift.absoluteShift * 100).toFixed(2)}%`,
     numericValue: targetDrift.absoluteShift,
-    threshold: "<5%",
-    status: targetDrift.absoluteShift < 0.05 ? "pass" : targetDrift.absoluteShift < 0.1 ? "warning" : "fail",
+    threshold: `<${(thresholds.targetDriftWarning * 100).toFixed(0)}%`,
+    status: targetDrift.absoluteShift < thresholds.targetDriftWarning ? "pass" : targetDrift.absoluteShift < thresholds.targetDriftSevere ? "warning" : "fail",
   })
 
   // --- Minimum subgroup N ---
@@ -537,11 +540,11 @@ function computeGovernance(
     const minN = Math.min(...allSubgroups.map((s) => s.metrics.n))
     const smallestGroup = allSubgroups.reduce((a, b) => (a.metrics.n < b.metrics.n ? a : b))
     checks.push({
-      name: "Subgroup n≥50",
+      name: `Subgroup n≥${thresholds.minSubgroupN}`,
       value: `n=${minN}`,
       numericValue: minN,
-      threshold: "≥50",
-      status: minN >= 50 ? "pass" : "warning",
+      threshold: `≥${thresholds.minSubgroupN}`,
+      status: minN >= thresholds.minSubgroupN ? "pass" : "warning",
       details: `Smallest: ${smallestGroup.groupValue}`,
     })
   }
@@ -590,7 +593,8 @@ function computeGovernance(
 
 export function computeAllMetrics(
   rows: DatasetRow[],
-  mapping: ColumnMapping
+  mapping: ColumnMapping,
+  thresholds: GovernanceThresholds = DEFAULT_THRESHOLDS
 ): ComputedMetrics {
   // Extract overall arrays
   const yTrueAll: (0 | 1)[] = []
@@ -670,7 +674,7 @@ export function computeAllMetrics(
   const subgroupTimeSeries = computeSubgroupTimeSeries(rows, mapping)
 
   // Governance decision
-  const governance = computeGovernance(overall, subgroups, featureDrift, predictionDrift, targetDrift)
+  const governance = computeGovernance(overall, subgroups, featureDrift, predictionDrift, targetDrift, thresholds)
 
   return {
     overall,

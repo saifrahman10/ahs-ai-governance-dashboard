@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
-import { Bell, Download, FileJson, FileSpreadsheet } from "lucide-react"
+import { Bell, Download, FileJson, FileSpreadsheet, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -12,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useDataset } from "@/lib/dataset-context"
 import { exportMetricsCSV, downloadCSV, exportGovernanceJSON, downloadJSON } from "@/lib/export"
+import { ThresholdSettingsDrawer } from "./threshold-settings-drawer"
+import { DEFAULT_THRESHOLDS } from "@/lib/types"
 
 interface DashboardHeaderProps {
   activeTab: string
@@ -27,8 +30,13 @@ const tabs = [
 ]
 
 export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps) {
-  const { computedMetrics, columnMapping, status } = useDataset()
+  const { computedMetrics, columnMapping, status, thresholds } = useDataset()
   const hasData = status === "ready" && computedMetrics !== null
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const isCustomThresholds = (Object.keys(thresholds) as (keyof typeof thresholds)[]).some(
+    (k) => thresholds[k] !== DEFAULT_THRESHOLDS[k]
+  )
 
   function handleExportCSV() {
     if (!computedMetrics || !columnMapping) return
@@ -86,6 +94,20 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 text-muted-foreground relative"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings2 className="size-3.5" />
+            Thresholds
+            {isCustomThresholds && (
+              <span className="absolute -top-1 -right-1 flex size-2">
+                <span className="relative inline-flex size-2 rounded-full bg-warning" />
+              </span>
+            )}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -153,6 +175,7 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
           </button>
         ))}
       </nav>
+      <ThresholdSettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   )
 }

@@ -8,7 +8,9 @@ import type {
   FilterState,
   DatasetStatus,
   DatasetRow,
+  GovernanceThresholds,
 } from "./types"
+import { DEFAULT_THRESHOLDS } from "./types"
 import { parseCSV, parseCSVString } from "./csv-parser"
 import { autoDetectMapping } from "./column-mapper"
 import { computeAllMetrics } from "./metrics"
@@ -28,6 +30,7 @@ interface DatasetContextValue {
   computedMetrics: ComputedMetrics | null
   filters: FilterState
   recentUploads: UploadRecord[]
+  thresholds: GovernanceThresholds
 
   uploadFile: (file: File) => Promise<void>
   loadSampleData: () => Promise<void>
@@ -37,6 +40,8 @@ interface DatasetContextValue {
   resetDataset: () => void
   getFilteredRows: () => DatasetRow[]
   getFilteredMetrics: () => ComputedMetrics | null
+  applyThresholds: (newThresholds: GovernanceThresholds) => void
+  resetThresholds: () => void
 }
 
 const DatasetContext = createContext<DatasetContextValue | null>(null)
@@ -54,6 +59,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     datasetPeriod: "all",
     timeRange: null,
   })
+  const [thresholds, setThresholds] = useState<GovernanceThresholds>({ ...DEFAULT_THRESHOLDS })
 
   const addUploadRecord = useCallback((record: UploadRecord) => {
     setRecentUploads((prev) => [record, ...prev].slice(0, 10))
@@ -121,10 +127,9 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     setStatus("computing")
     setError(null)
 
-    // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
       try {
-        const metrics = computeAllMetrics(parsedDataset.rows, columnMapping)
+        const metrics = computeAllMetrics(parsedDataset.rows, columnMapping, thresholds)
         setComputedMetrics(metrics)
         setRecentUploads((prev) =>
           prev.map((u, i) => (i === 0 ? { ...u, status: "ready" as const } : u))
@@ -136,7 +141,29 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         setStatus("error")
       }
     }, 50)
+  }, [parsedDataset, columnMapping, thresholds])
+
+  const applyThresholds = useCallback((newThresholds: GovernanceThresholds) => {
+    setThresholds(newThresholds)
+    if (!parsedDataset || !columnMapping) return
+    setStatus("computing")
+    setError(null)
+    setTimeout(() => {
+      try {
+        const metrics = computeAllMetrics(parsedDataset.rows, columnMapping, newThresholds)
+        setComputedMetrics(metrics)
+        setStatus("ready")
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to recompute metrics"
+        setError(msg)
+        setStatus("error")
+      }
+    }, 50)
   }, [parsedDataset, columnMapping])
+
+  const resetThresholds = useCallback(() => {
+    applyThresholds({ ...DEFAULT_THRESHOLDS })
+  }, [applyThresholds])
 
   const setFilters = useCallback((partial: Partial<FilterState>) => {
     setFiltersState((prev) => ({ ...prev, ...partial }))
@@ -174,11 +201,11 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     if (filteredRows.length === 0) return computedMetrics
 
     try {
-      return computeAllMetrics(filteredRows, columnMapping)
+      return computeAllMetrics(filteredRows, columnMapping, thresholds)
     } catch {
       return computedMetrics
     }
-  }, [columnMapping, computedMetrics, filters, getFilteredRows])
+  }, [columnMapping, computedMetrics, filters, getFilteredRows, thresholds])
 
   const resetDataset = useCallback(() => {
     setStatus("empty")
@@ -204,6 +231,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         computedMetrics,
         filters,
         recentUploads,
+        thresholds,
         uploadFile,
         loadSampleData,
         setColumnMapping,
@@ -212,6 +240,8 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         resetDataset,
         getFilteredRows,
         getFilteredMetrics,
+        applyThresholds,
+        resetThresholds,
       }}
     >
       {children}
