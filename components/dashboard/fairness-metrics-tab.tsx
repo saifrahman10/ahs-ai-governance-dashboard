@@ -27,6 +27,7 @@ import {
   Legend,
 } from "recharts"
 import { useDataset } from "@/lib/dataset-context"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 
 const CHART_COLORS = [
   "var(--color-chart-1)",
@@ -50,7 +51,7 @@ const tooltipStyle = {
 }
 
 export function FairnessMetricsTab() {
-  const { computedMetrics, status, columnMapping } = useDataset()
+  const { computedMetrics, viewMetrics, status, columnMapping } = useDataset()
   const [selectedGroup, setSelectedGroup] = useState<string>("")
 
   const groupColumns = useMemo(() => {
@@ -59,7 +60,7 @@ export function FairnessMetricsTab() {
   }, [computedMetrics])
 
   const activeGroup = selectedGroup || groupColumns[0] || ""
-  const subgroupData = computedMetrics?.subgroups[activeGroup] ?? []
+  const subgroupData = viewMetrics?.subgroups[activeGroup] ?? []
 
   const fnrData = useMemo(
     () =>
@@ -106,8 +107,8 @@ export function FairnessMetricsTab() {
   )
 
   const tier1Metrics = useMemo(() => {
-    if (!computedMetrics) return []
-    return computedMetrics.governance.checks
+    if (!viewMetrics) return []
+    return viewMetrics.governance.checks
       .filter((c) =>
         ["FNR Disparity", "PPV Disparity", "Calibration ECE", "Min Recall"].includes(c.name)
       )
@@ -117,9 +118,9 @@ export function FairnessMetricsTab() {
         current: c.value,
         status: c.status,
       }))
-  }, [computedMetrics])
+  }, [viewMetrics])
 
-  if (status !== "ready" || !computedMetrics) {
+  if (status !== "ready" || !computedMetrics || !viewMetrics) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <Database className="size-10 mb-3" />
@@ -130,13 +131,21 @@ export function FairnessMetricsTab() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <ShieldAlert className="size-5 text-primary" />
-            Tier 1 Critical Safety Metrics
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <ShieldAlert className="size-5 text-primary" />
+              Tier 1 Critical Safety Metrics
+            </h2>
+            <MetricHelpPopover title="Fairness metrics tab">
+              <>
+                <p>Subgroup-level views of FNR and PPV, plus a scatter of recall vs PPV. Select which demographic column to stratify by when multiple are available.</p>
+                <p>Thresholds reflect governance defaults unless you changed them in Thresholds.</p>
+              </>
+            </MetricHelpPopover>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Core fairness and safety metrics required for clinical governance approval
           </p>
@@ -158,6 +167,12 @@ export function FairnessMetricsTab() {
       {/* Metric status table */}
       <Card className="border-border bg-card">
         <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tier 1 checks</p>
+            <MetricHelpPopover title="Tier 1 checks">
+              <p>Subset of governance checks most tied to safety: FNR disparity, PPV disparity, calibration ECE, and minimum recall. Status mirrors the overview decision.</p>
+            </MetricHelpPopover>
+          </div>
           <div className="flex flex-col gap-2">
             {tier1Metrics.map((metric) => (
               <div
@@ -194,8 +209,11 @@ export function FairnessMetricsTab() {
         {/* FNR by Subgroup */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
               False Negative Rate by Subgroup
+              <MetricHelpPopover title="FNR by subgroup">
+                <p>Bar height is FNR per subgroup value. Colors highlight distance from policy; dashed line is an 8% reference for reading the chart.</p>
+              </MetricHelpPopover>
             </CardTitle>
             <CardDescription className="text-xs">
               Grouped by: {activeGroup} · Threshold band at 8% disparity gap
@@ -222,7 +240,12 @@ export function FairnessMetricsTab() {
         {/* PPV by Subgroup */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">PPV by Subgroup</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              PPV by Subgroup
+              <MetricHelpPopover title="PPV by subgroup">
+                <p>Bar height is positive predictive value per subgroup. Color scale emphasizes disparity risk; governance uses max−min PPV gap across values.</p>
+              </MetricHelpPopover>
+            </CardTitle>
             <CardDescription className="text-xs">
               Grouped by: {activeGroup} · Threshold band at 12% disparity gap
             </CardDescription>
@@ -249,18 +272,31 @@ export function FairnessMetricsTab() {
       {scatterData.length > 0 && (
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Recall vs PPV by Subgroup</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              Recall vs PPV by Subgroup
+              <MetricHelpPopover title="Recall vs PPV scatter">
+                <>
+                  <p>Each dot is one subgroup value. Axes are recall (x) and PPV (y); dot size encodes sample size—larger dots are more reliable.</p>
+                  <p>Vertical line marks a minimum recall reference for reading the chart.</p>
+                </>
+              </MetricHelpPopover>
+            </CardTitle>
             <CardDescription className="text-xs">Dot size represents subgroup sample size (n)</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <ScatterChart margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+              <ScatterChart margin={{ top: 28, right: 30, left: 0, bottom: 28 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis type="number" dataKey="recall" name="Recall" domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={{ stroke: "var(--color-border)" }} tickLine={false} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} label={{ value: "Recall", position: "bottom", offset: 0, fontSize: 11, fill: "var(--color-muted-foreground)" }} />
                 <YAxis type="number" dataKey="ppv" name="PPV" domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} label={{ value: "PPV", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: "var(--color-muted-foreground)" }} />
                 <ZAxis type="number" dataKey="n" range={[80, 500]} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => { if (name === "Recall" || name === "PPV") return [`${(value * 100).toFixed(1)}%`, name]; return [value, name] }} />
-                <Legend wrapperStyle={{ fontSize: "11px" }} formatter={() => "Subgroups (size = n)"} />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  wrapperStyle={{ fontSize: "11px", paddingBottom: 8 }}
+                  formatter={() => "Subgroups (size = n)"}
+                />
                 <ReferenceLine x={0.85} stroke="var(--color-destructive)" strokeDasharray="4 4" strokeWidth={1} />
                 <Scatter data={scatterData} name="Subgroups (size = n)">
                   {scatterData.map((_, idx) => (
@@ -277,9 +313,14 @@ export function FairnessMetricsTab() {
       {sampleSizeWarnings.length > 0 && (
         <Card className="border-warning/30 bg-warning/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-              <AlertTriangle className="size-4 text-warning" />
-              Sample Size Warning
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2 flex-wrap">
+              <AlertTriangle className="size-4 text-warning shrink-0" />
+              <span className="flex items-center gap-1.5">
+                Sample Size Warning
+                <MetricHelpPopover title="Sample size warning">
+                  <p>Lists subgroup values with small n in the current column. Estimates are unstable; governance may flag subgroup n below the threshold.</p>
+                </MetricHelpPopover>
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">

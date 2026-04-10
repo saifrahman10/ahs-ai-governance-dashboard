@@ -33,7 +33,7 @@ export default function GovernanceDashboard() {
     <DatasetProvider>
       <div className="min-h-screen bg-background">
         <DashboardHeader activeTab={activeTab} onTabChange={handleTabChange} />
-        <main className="mx-auto max-w-7xl px-6 py-6">
+        <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
           {tabs.map(({ id, Component }) => (
             <div key={id} style={{ display: activeTab === id ? "block" : "none" }}>
               <Component />

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { useDataset } from "@/lib/dataset-context"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 
 export function UploadConfigPanel() {
   const {
@@ -30,6 +31,7 @@ export function UploadConfigPanel() {
     parsedDataset,
     columnMapping,
     computedMetrics,
+    viewMetrics,
     filters,
     recentUploads,
     uploadFile,
@@ -62,13 +64,27 @@ export function UploadConfigPanel() {
   const isLoading = status === "uploading" || status === "computing"
   const hasData = status === "ready" && computedMetrics !== null
 
+  const filterActive =
+    filters.datasetPeriod !== "all" || Boolean(filters.subgroupColumn && filters.subgroupValue)
+
   return (
     <Card className="border-border bg-card">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Upload className="size-4 text-primary" />
-            Upload & Configure
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2 flex-wrap min-w-0">
+            <Upload className="size-4 text-primary shrink-0" />
+            <span className="flex items-center gap-1.5">
+              Upload & Configure
+              <MetricHelpPopover title="Upload & configure">
+                <>
+                  <p>Load a CSV with outcomes and predictions. After upload, confirm column mapping—then metrics and charts populate.</p>
+                  <p>
+                    Optional filters slice the dataset. Period filter needs a mapped dataset period column. Subgroup filter
+                    needs both a column and a value—choosing only a column does not narrow rows until you pick a value.
+                  </p>
+                </>
+              </MetricHelpPopover>
+            </span>
           </CardTitle>
           {hasData && (
             <Button
@@ -168,8 +184,12 @@ export function UploadConfigPanel() {
               <CheckCircle2 className="size-3.5 text-success" />
               <span className="text-xs font-medium text-foreground">{parsedDataset.fileName}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              {parsedDataset.rowCount.toLocaleString()} rows · {parsedDataset.columns.length} columns · {computedMetrics?.governance.decision}
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              {parsedDataset.rowCount.toLocaleString()} rows · {parsedDataset.columns.length} columns · Decision:{" "}
+              {viewMetrics?.governance.decision ?? "—"}
+              {filterActive && viewMetrics && viewMetrics.overall.n !== parsedDataset.rowCount && (
+                <> · Metrics use {viewMetrics.overall.n.toLocaleString()} rows</>
+              )}
             </p>
           </div>
         )}
@@ -178,8 +198,11 @@ export function UploadConfigPanel() {
         {hasData && (
           <>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 Subgroup Filter
+                <MetricHelpPopover title="Subgroup filter">
+                  <p>Optionally restrict charts and recomputed metrics to one demographic column and value. “All” uses the full dataset.</p>
+                </MetricHelpPopover>
               </label>
               <Select
                 value={filters.subgroupColumn ?? "all"}
@@ -204,8 +227,11 @@ export function UploadConfigPanel() {
 
             {filters.subgroupColumn && computedMetrics?.subgroups[filters.subgroupColumn] && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                   Subgroup Value
+                  <MetricHelpPopover title="Subgroup value">
+                    <p>Pick a single category within the selected column (e.g. one region or age band) to analyze in isolation.</p>
+                  </MetricHelpPopover>
                 </label>
                 <Select
                   value={filters.subgroupValue ?? "all"}
@@ -230,8 +256,11 @@ export function UploadConfigPanel() {
 
             {columnMapping?.datasetPeriod && (
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                   Dataset Period
+                  <MetricHelpPopover title="Dataset period">
+                    <p>Filter rows to Reference or Current when your CSV includes a dataset period column—useful for comparing distributions and drift inputs.</p>
+                  </MetricHelpPopover>
                 </label>
                 <Select
                   value={filters.datasetPeriod}

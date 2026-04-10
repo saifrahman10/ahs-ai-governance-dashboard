@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Target, Info, AlertTriangle, CheckCircle2, XCircle, Database } from "lucide-react"
+import { Target, Info, Database } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -23,9 +23,10 @@ import {
   Cell,
   LineChart,
   Line,
-  Legend,
 } from "recharts"
 import { useDataset } from "@/lib/dataset-context"
+import { DecisionLogicCard } from "@/components/dashboard/decision-logic-card"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 
 const CHART_COLORS = [
   "var(--color-chart-1)",
@@ -48,16 +49,8 @@ function colorForMetric(value: number, threshold: number, above: boolean) {
   return "var(--color-chart-2)"
 }
 
-const decisionRules = [
-  { condition: "All metrics pass", result: "PASS", icon: CheckCircle2, iconColor: "text-success", resultColor: "bg-success/10 text-success border-success/20" },
-  { condition: "1 metric <20% over threshold", result: "NEEDS REVIEW", icon: AlertTriangle, iconColor: "text-warning", resultColor: "bg-warning/10 text-warning border-warning/20" },
-  { condition: "1 metric ≥20% over OR 2+ exceed", result: "FAIL", icon: XCircle, iconColor: "text-destructive", resultColor: "bg-destructive/10 text-destructive border-destructive/20" },
-  { condition: "Any subgroup n < 50", result: "NEEDS REVIEW", icon: AlertTriangle, iconColor: "text-warning", resultColor: "bg-warning/10 text-warning border-warning/20" },
-  { condition: "Calibration ECE >0.10 any group", result: "FAIL", icon: XCircle, iconColor: "text-destructive", resultColor: "bg-destructive/10 text-destructive border-destructive/20" },
-]
-
 export function ModelPerformanceTab() {
-  const { computedMetrics, status } = useDataset()
+  const { computedMetrics, viewMetrics, status } = useDataset()
   const [selectedGroup, setSelectedGroup] = useState<string>("")
 
   const groupColumns = useMemo(() => {
@@ -66,9 +59,9 @@ export function ModelPerformanceTab() {
   }, [computedMetrics])
 
   const activeGroup = selectedGroup || groupColumns[0] || ""
-  const subgroupData = computedMetrics?.subgroups[activeGroup] ?? []
+  const subgroupData = viewMetrics?.subgroups[activeGroup] ?? []
 
-  if (status !== "ready" || !computedMetrics) {
+  if (status !== "ready" || !computedMetrics || !viewMetrics) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <Database className="size-10 mb-3" />
@@ -95,11 +88,11 @@ export function ModelPerformanceTab() {
   const ppvValues = subgroupData.map((s) => s.metrics.precision).filter((v) => v > 0)
   const ppvDisparity = ppvValues.length > 0 ? Math.max(...ppvValues) - Math.min(...ppvValues) : 0
 
-  const recallCheck = computedMetrics.governance.checks.find((c) => c.name === "Min Recall")
-  const ppvCheck = computedMetrics.governance.checks.find((c) => c.name === "PPV Disparity")
+  const recallCheck = viewMetrics.governance.checks.find((c) => c.name === "Min Recall")
+  const ppvCheck = viewMetrics.governance.checks.find((c) => c.name === "PPV Disparity")
 
   // Calibration curve
-  const calibData = computedMetrics.calibrationCurve.map((c) => ({
+  const calibData = viewMetrics.calibrationCurve.map((c) => ({
     predicted: c.predicted,
     observed: c.observed,
     count: c.count,
@@ -107,12 +100,20 @@ export function ModelPerformanceTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Target className="size-5 text-primary" />
-            Recall and PPV per Subgroup
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Target className="size-5 text-primary" />
+              Recall and PPV per Subgroup
+            </h2>
+            <MetricHelpPopover title="Model performance tab">
+              <>
+                <p>Bar charts show recall and PPV for each subgroup value of the selected column. Calibration compares predicted vs observed rates.</p>
+                <p>Threshold cards reflect governance checks for minimum recall and PPV disparity.</p>
+              </>
+            </MetricHelpPopover>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Core model performance stratified by subgroup for governance review
           </p>
@@ -145,9 +146,14 @@ export function ModelPerformanceTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card className="border-border bg-card">
           <CardContent className="pt-4 pb-4 px-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs text-muted-foreground">Recall Requirement</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  Recall Requirement
+                  <MetricHelpPopover title="Recall requirement">
+                    <p>Minimum recall across subgroups must meet the governance floor. Badge reflects the Min Recall check from the decision engine.</p>
+                  </MetricHelpPopover>
+                </p>
                 <p className="text-lg font-semibold text-foreground mt-1">{"\u2265"}85% minimum</p>
               </div>
               <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${recallCheck?.status === "pass" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
@@ -162,9 +168,14 @@ export function ModelPerformanceTab() {
         </Card>
         <Card className="border-border bg-card">
           <CardContent className="pt-4 pb-4 px-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs text-muted-foreground">PPV Disparity</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  PPV Disparity
+                  <MetricHelpPopover title="PPV disparity">
+                    <p>Here, disparity is max PPV minus min PPV across subgroups for the selected column—aligned with the governance PPV disparity check.</p>
+                  </MetricHelpPopover>
+                </p>
                 <p className="text-lg font-semibold text-foreground mt-1">{"\u2264"}12% disparity</p>
               </div>
               <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${ppvCheck?.status === "pass" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
@@ -182,7 +193,12 @@ export function ModelPerformanceTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Recall per Subgroup</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              Recall per Subgroup
+              <MetricHelpPopover title="Recall per subgroup">
+                <p>Height of each bar is recall for that subgroup value. Dashed line is the minimum acceptable recall from policy.</p>
+              </MetricHelpPopover>
+            </CardTitle>
             <CardDescription className="text-xs">Grouped by: {activeGroup} · Minimum 85% required</CardDescription>
           </CardHeader>
           <CardContent>
@@ -205,7 +221,12 @@ export function ModelPerformanceTab() {
 
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">PPV per Subgroup</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              PPV per Subgroup
+              <MetricHelpPopover title="PPV per subgroup">
+                <p>Positive predictive value per subgroup: among predicted positives, what fraction were true positives. Higher is usually better.</p>
+              </MetricHelpPopover>
+            </CardTitle>
             <CardDescription className="text-xs">Grouped by: {activeGroup} · Maximum 12% disparity</CardDescription>
           </CardHeader>
           <CardContent>
@@ -230,53 +251,50 @@ export function ModelPerformanceTab() {
       {calibData.length > 0 && (
         <Card className="border-border bg-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Calibration Curve</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              Calibration Curve
+              <MetricHelpPopover title="Calibration curve">
+                <>
+                  <p>Each point is a bin: mean predicted probability vs observed positive rate. The diagonal is perfect calibration.</p>
+                  <p>ECE (expected calibration error) summarizes distance from ideal—reported in the subtitle.</p>
+                </>
+              </MetricHelpPopover>
+            </CardTitle>
             <CardDescription className="text-xs">
-              Predicted probability vs observed frequency · ECE = {computedMetrics.overall.ece.toFixed(4)}
+              Solid line: calibration curve vs diagonal (perfect calibration). ECE = {viewMetrics.overall.ece.toFixed(4)}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={calibData} margin={{ top: 10, right: 10, left: -10, bottom: 10 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={calibData} margin={{ top: 16, right: 12, left: 4, bottom: 36 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis type="number" dataKey="predicted" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={{ stroke: "var(--color-border)" }} tickLine={false} label={{ value: "Mean Predicted", position: "bottom", fontSize: 11, fill: "var(--color-muted-foreground)" }} />
-                <YAxis type="number" domain={[0, 1]} tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} label={{ value: "Observed", angle: -90, position: "insideLeft", fontSize: 11, fill: "var(--color-muted-foreground)" }} />
+                <XAxis
+                  type="number"
+                  dataKey="predicted"
+                  domain={[0, 1]}
+                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                  axisLine={{ stroke: "var(--color-border)" }}
+                  tickLine={false}
+                  label={{ value: "Mean predicted probability", position: "bottom", offset: 12, fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                />
+                <YAxis
+                  type="number"
+                  domain={[0, 1]}
+                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  label={{ value: "Observed rate", angle: -90, position: "insideLeft", fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                />
                 <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 1, y: 1 }]} stroke="var(--color-muted-foreground)" strokeDasharray="4 4" strokeWidth={1} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => [v.toFixed(3), name]} />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Line type="monotone" dataKey="observed" name="Calibration" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 4 }} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v.toFixed(3), "Observed"]} />
+                <Line type="monotone" dataKey="observed" name="Observed" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
 
-      {/* Decision Logic */}
-      <Card className="border-primary/20 bg-primary/[0.02]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Info className="size-4 text-primary" />
-            Decision Logic Summary
-          </CardTitle>
-          <CardDescription className="text-xs">How governance decisions are computed from metric results</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {decisionRules.map((rule, i) => {
-            const Icon = rule.icon
-            return (
-              <div key={i} className="flex items-center justify-between rounded-md bg-card border border-border px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Icon className={`size-4 ${rule.iconColor}`} />
-                  <span className="text-sm text-foreground">{rule.condition}</span>
-                </div>
-                <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${rule.resultColor}`}>
-                  {rule.result}
-                </Badge>
-              </div>
-            )
-          })}
-        </CardContent>
-      </Card>
+      <DecisionLogicCard />
     </div>
   )
 }

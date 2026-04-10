@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useDataset } from "@/lib/dataset-context"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 import { validateMapping, getSuggestedSubgroupColumns, getSuggestedFeatureColumns } from "@/lib/column-mapper"
 import type { ColumnMapping } from "@/lib/types"
 
@@ -167,9 +168,17 @@ export function ColumnMappingDialog() {
 
           {/* Header — fixed height, never scrolls */}
           <div style={{ flexShrink: 0, padding: "1.5rem 1.5rem 1rem", borderBottom: "1px solid var(--border)" }}>
-            <h2 className="text-base font-semibold flex items-center gap-2" style={{ paddingRight: "2rem" }}>
+            <h2 className="text-base font-semibold flex items-center gap-2 flex-wrap" style={{ paddingRight: "2rem" }}>
               <Database className="size-5 text-primary" />
-              Map Your Dataset Columns
+              <span className="flex items-center gap-1.5">
+                Map Your Dataset Columns
+                <MetricHelpPopover title="Column mapping">
+                  <>
+                    <p>Match each role to a CSV column. Required fields drive metrics; drift and time columns unlock reference/current splits and trends.</p>
+                    <p>Subgroup and feature lists use pattern-based suggestions—toggle checkboxes to include or exclude columns.</p>
+                  </>
+                </MetricHelpPopover>
+              </span>
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               We auto-detected {autoDetectedCount} of {FIELDS.length} fields from{" "}

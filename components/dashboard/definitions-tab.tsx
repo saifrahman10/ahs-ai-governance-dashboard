@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { BookOpen, Search, Download, ChevronDown, ChevronUp } from "lucide-react"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -108,10 +109,18 @@ export function DefinitionsTab() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <BookOpen className="size-5 text-primary" />
-            Definitions & Glossary
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <BookOpen className="size-5 text-primary" />
+              Definitions & Glossary
+            </h2>
+            <MetricHelpPopover title="Definitions & glossary">
+              <p>
+                Expand any term for plain-language meaning, clinical risk notes, and thresholds. Use search to jump to a
+                metric. This is reference documentation, not live values from your dataset.
+              </p>
+            </MetricHelpPopover>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Reference definitions for all governance metrics and thresholds
           </p>

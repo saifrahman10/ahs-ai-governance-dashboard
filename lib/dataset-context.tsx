@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react"
 import type {
   ParsedDataset,
   ColumnMapping,
@@ -28,6 +28,8 @@ interface DatasetContextValue {
   parsedDataset: ParsedDataset | null
   columnMapping: ColumnMapping | null
   computedMetrics: ComputedMetrics | null
+  /** Metrics for the current filter selection (same as computedMetrics when no filter). */
+  viewMetrics: ComputedMetrics | null
   filters: FilterState
   recentUploads: UploadRecord[]
   thresholds: GovernanceThresholds
@@ -207,6 +209,10 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     }
   }, [columnMapping, computedMetrics, filters, getFilteredRows, thresholds])
 
+  const viewMetrics = useMemo((): ComputedMetrics | null => {
+    return getFilteredMetrics()
+  }, [getFilteredMetrics])
+
   const resetDataset = useCallback(() => {
     setStatus("empty")
     setError(null)
@@ -229,6 +235,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         parsedDataset,
         columnMapping,
         computedMetrics,
+        viewMetrics,
         filters,
         recentUploads,
         thresholds,

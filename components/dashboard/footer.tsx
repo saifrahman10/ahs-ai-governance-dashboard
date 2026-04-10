@@ -4,10 +4,10 @@ import Image from "next/image"
 import { useDataset } from "@/lib/dataset-context"
 
 export function DashboardFooter() {
-  const { computedMetrics } = useDataset()
+  const { viewMetrics, parsedDataset } = useDataset()
 
-  const lastRun = computedMetrics
-    ? new Date(computedMetrics.governance.timestamp).toLocaleDateString("en-US", {
+  const lastRun = viewMetrics
+    ? new Date(viewMetrics.governance.timestamp).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -21,17 +21,17 @@ export function DashboardFooter() {
           <Image
             src="/ahs_logo.png"
             alt="Alberta Health Services"
-            width={120}
-            height={34}
-            className="h-8 w-auto opacity-60"
+            width={160}
+            height={46}
+            className="h-10 w-auto sm:h-12 opacity-60"
           />
           <span className="text-xs text-muted-foreground">
             Pediatric Diabetes AI Governance Capstone
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {computedMetrics
-            ? `Last Run: ${lastRun} · ${computedMetrics.overall.n.toLocaleString()} records evaluated`
+        <p className="text-xs text-muted-foreground text-right max-w-md">
+          {viewMetrics
+            ? `Last run: ${lastRun} · ${parsedDataset?.fileName ?? "dataset"} · ${viewMetrics.overall.n.toLocaleString()} records`
             : "No dataset loaded"}
         </p>
       </div>

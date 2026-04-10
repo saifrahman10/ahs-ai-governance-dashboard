@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 import { useDataset } from "@/lib/dataset-context"
 import type { GovernanceThresholds } from "@/lib/types"
 import { DEFAULT_THRESHOLDS } from "@/lib/types"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 
 interface ThresholdSettingsDrawerProps {
   open: boolean
@@ -110,9 +111,17 @@ export function ThresholdSettingsDrawer({ open, onOpenChange }: ThresholdSetting
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader className="pb-2">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <Settings2 className="size-4" />
-            Governance Thresholds
+          <SheetTitle className="flex items-center gap-2 text-base flex-wrap">
+            <Settings2 className="size-4 shrink-0" />
+            <span className="flex items-center gap-1.5">
+              Governance Thresholds
+              <MetricHelpPopover title="Governance thresholds">
+                <>
+                  <p>Adjust numeric cutoffs used by the decision engine. Apply recomputes metrics without re-uploading data.</p>
+                  <p>Non-default values should align with council-approved policy.</p>
+                </>
+              </MetricHelpPopover>
+            </span>
           </SheetTitle>
           <SheetDescription className="text-xs">
             Adjust the fairness and monitoring thresholds used to evaluate governance decisions.

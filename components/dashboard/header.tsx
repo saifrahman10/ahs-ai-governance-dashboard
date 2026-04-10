@@ -30,8 +30,8 @@ const tabs = [
 ]
 
 export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps) {
-  const { computedMetrics, columnMapping, status, thresholds } = useDataset()
-  const hasData = status === "ready" && computedMetrics !== null
+  const { computedMetrics, viewMetrics, columnMapping, status, thresholds, parsedDataset } = useDataset()
+  const hasData = status === "ready" && computedMetrics !== null && viewMetrics !== null
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const isCustomThresholds = (Object.keys(thresholds) as (keyof typeof thresholds)[]).some(
@@ -39,19 +39,19 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
   )
 
   function handleExportCSV() {
-    if (!computedMetrics || !columnMapping) return
-    const csv = exportMetricsCSV(computedMetrics, columnMapping)
+    if (!viewMetrics || !columnMapping) return
+    const csv = exportMetricsCSV(viewMetrics, columnMapping)
     downloadCSV(csv, `governance-report-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   function handleExportJSON() {
-    if (!computedMetrics) return
-    const json = exportGovernanceJSON(computedMetrics)
+    if (!viewMetrics) return
+    const json = exportGovernanceJSON(viewMetrics)
     downloadJSON(json, `governance-report-${new Date().toISOString().slice(0, 10)}.json`)
   }
 
   const alertCount =
-    hasData ? computedMetrics.governance.failCount + computedMetrics.governance.warnCount : 0
+    hasData ? viewMetrics.governance.failCount + viewMetrics.governance.warnCount : 0
 
   return (
     <header className="border-b border-border bg-card">
@@ -60,12 +60,12 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
           <Image
             src="/ahs_logo.png"
             alt="Alberta Health Services"
-            width={180}
-            height={52}
-            className="h-12 w-auto"
+            width={260}
+            height={75}
+            className="h-14 w-auto sm:h-16 md:h-[4.5rem]"
             priority
           />
-          <div className="h-10 w-px bg-border" />
+          <div className="h-14 w-px shrink-0 bg-border sm:h-16 md:h-[4.5rem]" />
           <div>
             <h1 className="text-base font-semibold text-foreground tracking-tight">
               AI Governance Dashboard
@@ -73,6 +73,11 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
             <p className="text-xs text-muted-foreground">
               Pediatric Diabetes &middot; Model Oversight
             </p>
+            {hasData && parsedDataset && (
+              <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[min(100%,220px)] mt-0.5" title={parsedDataset.fileName}>
+                {parsedDataset.fileName}
+              </p>
+            )}
           </div>
           <Badge variant="outline" className="ml-3 text-[10px] font-mono border-border text-muted-foreground">
             v2.4.1
@@ -81,20 +86,21 @@ export function DashboardHeader({ activeTab, onTabChange }: DashboardHeaderProps
             <Badge
               variant="outline"
               className={`ml-1 text-[10px] font-medium ${
-                computedMetrics.governance.decision === "PASS"
+                viewMetrics.governance.decision === "PASS"
                   ? "bg-success/10 text-success border-success/20"
-                  : computedMetrics.governance.decision === "FAIL"
+                  : viewMetrics.governance.decision === "FAIL"
                   ? "bg-destructive/10 text-destructive border-destructive/20"
                   : "bg-warning/10 text-warning border-warning/20"
               }`}
             >
-              {computedMetrics.governance.decision}
+              {viewMetrics.governance.decision}
             </Badge>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <Button
+            id="thresholds-trigger"
             variant="outline"
             size="sm"
             className="text-xs gap-1.5 text-muted-foreground relative"

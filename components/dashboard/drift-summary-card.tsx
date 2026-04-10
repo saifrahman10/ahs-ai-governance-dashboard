@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, CheckCircle2, TrendingUp, Database } from "luc
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useDataset } from "@/lib/dataset-context"
+import { MetricHelpPopover } from "@/components/dashboard/metric-help-popover"
 
 const statusIcon = {
   stable: CheckCircle2,
@@ -18,9 +19,9 @@ const statusColors = {
 }
 
 export function DriftSummaryCard() {
-  const { computedMetrics, status } = useDataset()
+  const { viewMetrics, status } = useDataset()
 
-  if (status !== "ready" || !computedMetrics) {
+  if (status !== "ready" || !viewMetrics) {
     return (
       <Card className="border-border bg-card">
         <CardContent className="py-8">
@@ -33,7 +34,7 @@ export function DriftSummaryCard() {
     )
   }
 
-  const { featureDrift, predictionDrift, targetDrift, dataQuality } = computedMetrics
+  const { featureDrift, predictionDrift, targetDrift, dataQuality } = viewMetrics
 
   const driftItems = [
     ...featureDrift.slice(0, 3).map((d) => ({
@@ -67,10 +68,18 @@ export function DriftSummaryCard() {
   return (
     <Card className="border-border bg-card">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Activity className="size-4 text-primary" />
-            Drift Summary
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2 flex-wrap min-w-0">
+            <Activity className="size-4 text-primary shrink-0" />
+            <span className="flex items-center gap-1.5">
+              Drift Summary
+              <MetricHelpPopover title="Drift summary">
+                <p>
+                  Snapshot of PSI (top features), prediction KS, target prevalence shift, and missingness. Status
+                  reflects governance thresholds—use the Drift tab for charts and detail.
+                </p>
+              </MetricHelpPopover>
+            </span>
           </CardTitle>
           <CardDescription className="text-xs">
             {featureDrift.length} features monitored
